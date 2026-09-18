@@ -11,16 +11,16 @@
 이 파일과 캡처 화면에는 실제 비밀번호, 전체 DB 접속 URL, API Key, 개인정보를 기록하지 않습니다.
 
 ```text
-GitHub 계정 또는 별칭:
-과제 작성일:
-사용한 AI 도구:
+GitHub 계정 또는 별칭: kyrdufmal-summer
+과제 작성일: 2026-09-17
+사용한 AI 도구: ChatGPT
 ```
 
 ---
 
 # 1. Chapter 07 기준 상태 확인
 
-다음을 실행합니다.
+다음을 실행합니다...
 
 ```text
 code/chapter08/00_check_course_project.sql
@@ -30,18 +30,17 @@ code/chapter08/00_check_course_project.sql
 
 ```text
 검증 메시지:
-
-students 행 수:
-instructors 행 수:
-courses 행 수:
-enrollments 행 수:
-
-전체 신청 건수:
-전체 recorded_amount:
-활성 신청 건수:
-활성 recorded_amount:
-취소 제외 신청 건수:
-취소 제외 recorded_amount:
+Chapter 08 prerequisite check passed
+students 행 수: 3
+instructors 행 수: 2
+courses 행 수: 3
+enrollments 행 수: 5
+전체 신청 건수: 5
+전체 recorded_amount: 590000
+활성 신청 건수: 3
+활성 recorded_amount: 340000
+취소 제외 신청 건수: 4
+취소 제외 recorded_amount: 440000
 ```
 
 기준값:
@@ -51,7 +50,6 @@ students = 3
 instructors = 2
 courses = 3
 enrollments = 5
-
 전체 = 5 / 590000
 활성 = 3 / 340000
 취소 제외 = 4 / 440000
@@ -60,7 +58,8 @@ enrollments = 5
 ### 기준값이 다르면 그대로 진행하면 안 되는 이유
 
 ```text
-
+Chapter 08 실습은 Chapter 07의 최종 데이터 상태를 기준으로 JOIN과 집계를 검증하기 때문이다.
+기준값이 다르면 이후 조회 결과와 집계 결과도 달라져 정상적인 비교와 검산이 어렵다.
 ```
 
 ### 증거 화면
@@ -72,7 +71,7 @@ assignments/chapter08/images/step01_prerequisite.png
 ```
 
 `여기에 사전 검사 통과 화면을 삽입하세요.`
-
+![Chapter 08 사전 검사 결과](images/step01_prerequisite.png)
 ---
 
 # 2. 업무 질문을 SQL보다 먼저 정의하기
@@ -82,40 +81,69 @@ assignments/chapter08/images/step01_prerequisite.png
 ## 질문 A
 
 ```text
-업무 질문:
-결과 한 행의 의미:
-포함 상태:
-제외 상태:
-JOIN할 테이블:
+업무 질문: 각 신청 건마다 신청한 학생 이름과 강의 제목을 함께 조회하고 싶다.
+결과 한 행의 의미: 신청 한 건
+포함 상태: 모든 신청 상태
+제외 상태: 없음
+JOIN할 테이블: enrollments, students, courses
+
 JOIN 경로:
+enrollments.student_id → students.id
+enrollments.course_id → courses.id
 INNER JOIN / LEFT JOIN 선택:
-그 이유:
-예상 행 수:
+INNER JOIN
+
+그 이유: 신청 데이터에 연결된 학생과 강의 정보가 모두 존재하는 정상적인 신청 건만 조회하면 되기 때문이다.
+
+예상 행 수: 5행
 ```
 
 ## 질문 B
 
 ```text
 업무 질문:
-결과 한 행의 의미:
-포함 상태:
-제외 상태:
-JOIN할 테이블:
+강의별로 취소를 제외한 신청 건수와 recorded_amount 합계를 확인하고 싶다.
+
+결과 한 행의 의미: 강의 한 개
+
+포함 상태: 신청, 수강중, 완료
+
+제외 상태: 취소
+
+JOIN할 테이블: courses, enrollments
+
 JOIN 경로:
+courses.id → enrollments.course_id
+
 집계 대상:
+취소 제외 신청 건수와 recorded_amount 합계
+
 예상 결과:
+강의별 취소 제외 신청 건수와 금액이 집계된다.
+전체 합계는 4건, 440000이다.
 ```
 
 ## 질문 C
 
 ```text
 업무 질문:
-결과 한 행의 의미:
-포함 상태:
-제외 상태:
-0건인 부모도 보여야 하는가:
+취소를 제외한 신청이 없는 강의도 포함하여 모든 강의의 신청 현황을 확인하고 싶다.
+
+결과 한 행의 의미: 강의 한 개
+
+포함 상태: 신청, 수강중, 완료
+
+제외 상태: 취소
+
+0건인 부모도 보여야 하는가: 예
+
 NULL을 어떻게 해석할 것인가:
+연결되는 취소 제외 신청 데이터가 없다는 의미로 해석한다.
+건수는 0, 금액은 필요하면 COALESCE를 사용해 0으로 표현한다.
+
 예상 결과:
+모든 강의가 결과에 나타나며,
+취소 제외 신청이 없는 강의 303도 0건으로 표시된다.
 ```
 
 ---
@@ -127,45 +155,79 @@ NULL을 어떻게 해석할 것인가:
 실행 전 예상:
 
 ```text
-결과 한 행 =
-예상 행 수 =
+결과 한 행 = 신청 한 건
+예상 행 수 = 5행
 JOIN 경로 =
+enrollments.student_id → students.id
+enrollments.course_id → courses.id
 ```
 
 내가 실행한 SQL:
 
 ```sql
+SELECT
+    e.id AS enrollment_id,
+    s.name AS student_name,
+    c.title AS course_title,
+    e.status
+FROM course_project.enrollments AS e
+INNER JOIN course_project.students AS s
+    ON e.student_id = s.id
+INNER JOIN course_project.courses AS c
+    ON e.course_id = c.id
+ORDER BY e.id;
 
 ```
 
 실제 결과:
 
 ```text
-실제 행 수:
-예상과 일치 여부:
+실제 행 수: 5행
+예상과 일치 여부: 일치
 ```
 
 ### 학생 이름이 여러 번 보이는 것이 중복 오류가 아닐 수 있는 이유
 
 ```text
-
+학생 이름이 여러 번 보이는 이유는 한 학생이 여러 강의를 신청할 수 있기 때문이다.
+결과의 기준이 학생 한 명이 아니라 신청 한 건이므로, 같은 학생 이름이 여러 행에 나타나도 중복 오류가 아니다.
 ```
 
 ## 3-2. 학생·강의·강사까지 연결
 
 ```text
-결과 한 행 =
+결과 한 행 = 신청 한 건
+
 강사까지 가는 JOIN 경로 =
+enrollments.student_id → students.id
+enrollments.course_id → courses.id
+courses.instructor_id → instructors.id
 ```
 
 ```sql
+SELECT
+    e.id AS enrollment_id,
+    s.name AS student_name,
+    c.title AS course_title,
+    i.name AS instructor_name,
+    e.status,
+    e.recorded_amount,
+    e.enrolled_at
+FROM course_project.enrollments AS e
+JOIN course_project.students AS s
+    ON e.student_id = s.id
+JOIN course_project.courses AS c
+    ON e.course_id = c.id
+JOIN course_project.instructors AS i
+    ON c.instructor_id = i.id
+ORDER BY e.id;
 
 ```
 
 실제 행 수:
 
 ```text
-
+실제 행 수: 5행
 ```
 
 ### 증거 화면
@@ -177,7 +239,7 @@ assignments/chapter08/images/step03_inner_join.png
 ```
 
 `여기에 다중 JOIN 결과 화면을 삽입하세요.`
-
+![학생·강의·강사 다중 JOIN 결과](images/step03_inner_join.png)
 ---
 
 # 4. LEFT JOIN과 0건 표현
@@ -190,23 +252,34 @@ assignments/chapter08/images/step03_inner_join.png
 
 ```text
 결과 한 행 = 강의 한 개
-강의 303의 예상 실제 신청 수 =
-강의 303의 예상 고유 학생 수 =
-강의 303의 예상 recorded_amount =
+강의 303의 예상 실제 신청 수 = 0건
+강의 303의 예상 고유 학생 수 = 0명
+강의 303의 예상 recorded_amount = 0
 ```
 
 내 SQL:
 
 ```sql
-
+SELECT
+    c.id AS course_id,
+    c.title AS course_title,
+    COUNT(e.id) AS non_cancelled_count,
+    COUNT(DISTINCT e.student_id) AS student_count,
+    COALESCE(SUM(e.recorded_amount), 0) AS non_cancelled_recorded_amount
+FROM course_project.courses AS c
+LEFT JOIN course_project.enrollments AS e
+    ON c.id = e.course_id
+   AND e.status <> '취소'
+GROUP BY c.id, c.title
+ORDER BY c.id;
 ```
 
 실제 결과:
 
 ```text
-강의 301:
-강의 302:
-강의 303:
+강의 301: 신청 2건 / 고유 학생 2명 / recorded_amount 200000
+강의 302: 신청 2건 / 고유 학생 2명 / recorded_amount 240000
+강의 303: 신청 0건 / 고유 학생 0명 / recorded_amount 0
 ```
 
 ## 4-2. `COUNT(*)`와 `COUNT(e.id)` 비교
@@ -214,9 +287,10 @@ assignments/chapter08/images/step03_inner_join.png
 강의 303을 기준으로 작성합니다.
 
 ```text
-COUNT(*) 결과:
-COUNT(e.id) 결과:
-COUNT(DISTINCT e.student_id) 결과:
+COUNT(*) 결과: 1
+COUNT(e.id) 결과: 0
+
+ COUNT(DISTINCT e.student_id) 결과: 0
 ```
 
 ### 왜 `COUNT(*) = 1`인데 실제 신청 수는 0일 수 있나요?
